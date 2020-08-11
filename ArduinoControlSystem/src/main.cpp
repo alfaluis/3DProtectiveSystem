@@ -3,27 +3,31 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
+
 #include "calibration.h"
 
 #define RED 12
 #define GREEN 11
 #define BLUE 10 
 
-#define DHTPIN 2
+#define DHTPIN 4
 #define DHTTYPE DHT22
-
 #define MQ2PIN 7
-
+#define INTPIN 2
 
 DHT dht(DHTPIN, DHTTYPE);
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 float R0 = 0;
+volatile byte state = LOW;
+volatile int pwm = 100;
+
+void blink();
 
 void setup() {
   Serial.begin(9600);
   dht.begin();
   lcd.begin(16, 2);
-
+  
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Calibration...");
@@ -36,28 +40,31 @@ void setup() {
   lcd.print(R0);
   
   // put your setup code here, to run once:
+  
   pinMode(RED, OUTPUT);
   pinMode(GREEN, OUTPUT);
   pinMode(BLUE, OUTPUT);
+  pinMode(INTPIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(INTPIN), blink, FALLING);
 }
 
 void loop() {
 
   // read several values from MQ2 
   float mq2 = MQRead(MQ2PIN);
-  int CoConcentration = MQGetGasPercentage(mq2 / R0, "CO");
+  int CoConcentration = MQGetGasPercentage(mq2 / R0, (char *) "CO");
   
   float h = dht.readHumidity();
   float t = dht.readTemperature();
 
-  if(t > 27 && h >= 50){
+  if(t > 27 && h >= 50) {
     digitalWrite(RED, HIGH);
-    digitalWrite(GREEN, HIGH);
-    digitalWrite(BLUE, HIGH);
-  } else{
     digitalWrite(GREEN, LOW);
-    digitalWrite(BLUE, LOW);
-    digitalWrite(RED, LOW);
+    analogWrite(BLUE, 0);
+  } else {
+    digitalWrite(GREEN, state);
+    digitalWrite(RED, state);
+    analogWrite(BLUE, pwm);
   }
 
   Serial.print("CO concentration: ");
@@ -80,5 +87,11 @@ void loop() {
   lcd.print(CoConcentration, 1);
   lcd.print("ppm");
   
-  delay(1000);
+  delay(500);
+}
+
+void blink() {
+  state = !state;
+  pwm = (pwm == 255) ? 100 : 255;
+  attachInterrupt(digitalPinToInterrupt(INTPIN), blink, RISING);
 }
