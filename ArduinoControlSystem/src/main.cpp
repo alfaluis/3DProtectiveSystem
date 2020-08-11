@@ -20,6 +20,7 @@ LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 float R0 = 0;
 volatile byte state = LOW;
 volatile int pwm = 100;
+int value = 0;
 
 void blink();
 
@@ -45,7 +46,6 @@ void setup() {
   pinMode(GREEN, OUTPUT);
   pinMode(BLUE, OUTPUT);
   pinMode(INTPIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(INTPIN), blink, FALLING);
 }
 
 void loop() {
@@ -57,13 +57,16 @@ void loop() {
   float h = dht.readHumidity();
   float t = dht.readTemperature();
 
+  value = digitalRead(INTPIN);
+  pwm = (value == HIGH) ? 255 : 100;
+  
   if(t > 27 && h >= 50) {
     digitalWrite(RED, HIGH);
     digitalWrite(GREEN, LOW);
     analogWrite(BLUE, 0);
   } else {
-    digitalWrite(GREEN, state);
-    digitalWrite(RED, state);
+    digitalWrite(GREEN, value);
+    digitalWrite(RED, value);
     analogWrite(BLUE, pwm);
   }
 
@@ -88,10 +91,4 @@ void loop() {
   lcd.print("ppm");
   
   delay(500);
-}
-
-void blink() {
-  state = !state;
-  pwm = (pwm == 255) ? 100 : 255;
-  attachInterrupt(digitalPinToInterrupt(INTPIN), blink, RISING);
 }
